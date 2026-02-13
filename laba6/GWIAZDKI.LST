@@ -1,0 +1,221 @@
+Microsoft (R) Macro Assembler Version 5.00                  1/12/26 23:13:49
+                                                             Page     1-1
+
+
+       1				; Program: gwiazdki.asm 
+       2				; Autor: Anastasiia Kniazhevska 196629 
+       3				; Zadanie: Ruch gwiazdki po naciœniêciu
+					 klawisza (manualny) 
+       4				;          z przywracaniem t³a i blokad
+					¹ krawêdzi ekranu. 
+       5				 
+       6 0000				rozkazy SEGMENT 
+       7				    ASSUME CS:rozkazy, DS:rozkazy 
+       8				 
+       9				; --- ZMIENNE --- 
+      10 0000  07D0			pozycja     dw 2000     ; Adres na ekra
+					nie (œrodek ekranu) 
+      11 0002  0000			stare_tlo   dw 0        ; Tu przechowam
+					y znak i kolor, który by³ pod gwiazdk¹ 
+      12				 
+      13 0004				zacznij: 
+      14 0004  B8 ---- R		    mov ax, rozkazy 
+      15 0007  8E D8			    mov ds, ax 
+      16				 
+      17				    ; Ustawienie trybu tekstowego 80x25
+					 
+      18 0009  B8 0003			    mov ax, 3 
+      19 000C  CD 10			    int 10h 
+      20				 
+      21				    ; ES na pamiêæ ekranu (B800h) 
+      22 000E  B8 B800			    mov ax, 0B800h 
+      23 0011  8E C0			    mov es, ax 
+      24				 
+      25				    ; Zapisanie t³a pod pierwsz¹ gwiazd
+					k¹ i narysowanie jej 
+      26 0013  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+      27 0018  26: 8B 07		    mov ax, es:[bx] 
+      28 001B  2E: A3 0002 R		    mov cs:stare_tlo, ax 
+      29				     
+      30 001F  26: C6 07 2A		    mov byte PTR es:[bx], '*' 
+      31 0023  26: C6 47 01 0E		    mov byte PTR es:[bx+1], 0Eh ; kolor
+					 ¿ó³ty 
+      32				 
+      33 0028				petla_klawiszy: 
+      34				    ; Czekanie na naciœniêcie klawisza 
+					(BIOS int 16h, ah=0) 
+      35 0028  B4 00			    mov ah, 0 
+      36 002A  CD 16			    int 16h 
+      37				 
+      38				    ; Sprawdzenie 'X' lub 'x' -> Wyjœci
+					e 
+      39 002C  3C 78			    cmp al, 'x' 
+      40 002E  74 26			    je go_koniec 
+      41 0030  3C 58			    cmp al, 'X' 
+      42 0032  74 22			    je go_koniec 
+      43				 
+      44				    ; Sprawdzenie klawiszy kierunkowych
+					 (R, L, U, D) 
+Microsoft (R) Macro Assembler Version 5.00                  1/12/26 23:13:49
+                                                             Page     1-2
+
+
+      45 0034  3C 72			    cmp al, 'r' 
+      46 0036  74 21			    je go_prawo 
+      47 0038  3C 52			    cmp al, 'R' 
+      48 003A  74 1D			    je go_prawo 
+      49 003C  3C 6C			    cmp al, 'l' 
+      50 003E  74 1C			    je go_lewo 
+      51 0040  3C 4C			    cmp al, 'L' 
+      52 0042  74 18			    je go_lewo 
+      53 0044  3C 75			    cmp al, 'u' 
+      54 0046  74 17			    je go_gora 
+      55 0048  3C 55			    cmp al, 'U' 
+      56 004A  74 13			    je go_gora 
+      57 004C  3C 64			    cmp al, 'd' 
+      58 004E  74 12			    je go_dol 
+      59 0050  3C 44			    cmp al, 'D' 
+      60 0052  74 0E			    je go_dol 
+      61				 
+      62 0054  EB D2			    jmp petla_klawiszy ; Inny klawisz -
+					> ignoruj 
+      63				 
+      64				; Mostki dla skoków (rozwi¹zuj¹ b³¹d "J
+					ump out of range") 
+      65 0056  EB 73 90			go_koniec: jmp koniec 
+      66 0059  EB 0A 90			go_prawo:  jmp ruch_prawo 
+      67 005C  EB 22 90			go_lewo:   jmp ruch_lewo 
+      68 005F  EB 3A 90			go_gora:   jmp ruch_gora 
+      69 0062  EB 4F 90			go_dol:    jmp ruch_dol 
+      70				 
+      71 0065				ruch_prawo: 
+      72 0065  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+      73 006A  8B C3			    mov ax, bx 
+      74 006C  B2 A0			    mov dl, 160 
+      75 006E  F6 F2			    div dl 
+      76 0070  80 FC 9E			    cmp ah, 158         ; Sprawdzenie p
+					rawej krawêdzi 
+      77 0073  73 53			    jae p_mostek 
+      78 0075  E8 00DC R		    call przywroc_tlo 
+      79 0078  83 C3 02			    add bx, 2 
+      80 007B  E8 00E4 R		    call narysuj_nowa 
+      81 007E  EB A8			    jmp petla_klawiszy 
+      82				 
+      83 0080				ruch_lewo: 
+      84 0080  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+      85 0085  8B C3			    mov ax, bx 
+      86 0087  B2 A0			    mov dl, 160 
+      87 0089  F6 F2			    div dl 
+      88 008B  80 FC 00			    cmp ah, 0           ; Sprawdzenie l
+					ewej krawêdzi 
+      89 008E  74 38			    je p_mostek 
+      90 0090  E8 00DC R		    call przywroc_tlo 
+      91 0093  83 EB 02			    sub bx, 2 
+      92 0096  E8 00E4 R		    call narysuj_nowa 
+      93 0099  EB 8D			    jmp petla_klawiszy 
+      94				 
+Microsoft (R) Macro Assembler Version 5.00                  1/12/26 23:13:49
+                                                             Page     1-3
+
+
+      95 009B				ruch_gora: 
+      96 009B  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+      97 00A0  81 FB 00A0		    cmp bx, 160         ; Sprawdzenie g
+					órnej krawêdzi 
+      98 00A4  72 22			    jb p_mostek 
+      99 00A6  E8 00DC R		    call przywroc_tlo 
+     100 00A9  81 EB 00A0		    sub bx, 160 
+     101 00AD  E8 00E4 R		    call narysuj_nowa 
+     102 00B0  E9 0028 R		    jmp petla_klawiszy 
+     103				 
+     104 00B3				ruch_dol: 
+     105 00B3  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+     106 00B8  81 FB 0F00		    cmp bx, 3840        ; Sprawdzenie d
+					olnej krawêdzi 
+     107 00BC  73 0A			    jae p_mostek 
+     108 00BE  E8 00DC R		    call przywroc_tlo 
+     109 00C1  81 C3 00A0		    add bx, 160 
+     110 00C5  E8 00E4 R		    call narysuj_nowa 
+     111 00C8  E9 0028 R		p_mostek: jmp petla_klawiszy 
+     112				 
+     113 00CB				koniec: 
+     114				    ; Odtworzenie t³a przed wyjœciem (u
+					suwamy gwiazdkê) 
+     115 00CB  2E: 8B 1E 0000 R		    mov bx, cs:pozycja 
+     116 00D0  2E: A1 0002 R		    mov ax, cs:stare_tlo 
+     117 00D4  26: 89 07		    mov es:[bx], ax 
+     118				     
+     119 00D7  B8 4C00			    mov ax, 4C00h 
+     120 00DA  CD 21			    int 21h 
+     121				 
+     122				; --- PROCEDURY --- 
+     123				 
+     124 00DC				przywroc_tlo PROC 
+     125 00DC  2E: A1 0002 R		    mov ax, cs:stare_tlo 
+     126 00E0  26: 89 07		    mov es:[bx], ax     ; Wstawienie or
+					yginalnego znaku i koloru z powrotem 
+     127 00E3  C3			    ret 
+     128 00E4				przywroc_tlo ENDP 
+     129				 
+     130 00E4				narysuj_nowa PROC 
+     131 00E4  2E: 89 1E 0000 R		    mov cs:pozycja, bx  ; Zapamiêtanie 
+					nowej pozycji 
+     132 00E9  26: 8B 07		    mov ax, es:[bx]     ; Pobranie oryg
+					inalnego t³a z nowego miejsca 
+     133 00EC  2E: A3 0002 R		    mov cs:stare_tlo, ax 
+     134 00F0  26: C6 07 2A		    mov byte PTR es:[bx], '*' 
+     135 00F4  26: C6 47 01 0E		    mov byte PTR es:[bx+1], 0Eh 
+     136 00F9  C3			    ret 
+     137 00FA				narysuj_nowa ENDP 
+     138				 
+     139 00FA				rozkazy ENDS 
+     140				END zacznij 
+Microsoft (R) Macro Assembler Version 5.00                  1/12/26 23:13:49
+                                                             Symbols-1
+
+
+Segments and Groups:
+
+                N a m e         	Length	 Align	Combine Class
+
+ROZKAZY  . . . . . . . . . . . .  	00FA	PARA	NONE	
+
+Symbols:            
+
+                N a m e         	Type	 Value	 Attr
+
+GO_DOL . . . . . . . . . . . . .  	L NEAR	0062	ROZKAZY
+GO_GORA  . . . . . . . . . . . .  	L NEAR	005F	ROZKAZY
+GO_KONIEC  . . . . . . . . . . .  	L NEAR	0056	ROZKAZY
+GO_LEWO  . . . . . . . . . . . .  	L NEAR	005C	ROZKAZY
+GO_PRAWO . . . . . . . . . . . .  	L NEAR	0059	ROZKAZY
+
+KONIEC . . . . . . . . . . . . .  	L NEAR	00CB	ROZKAZY
+
+NARYSUJ_NOWA . . . . . . . . . .  	N PROC	00E4	ROZKAZY	Length = 0016
+
+PETLA_KLAWISZY . . . . . . . . .  	L NEAR	0028	ROZKAZY
+POZYCJA  . . . . . . . . . . . .  	L WORD	0000	ROZKAZY
+PRZYWROC_TLO . . . . . . . . . .  	N PROC	00DC	ROZKAZY	Length = 0008
+P_MOSTEK . . . . . . . . . . . .  	L NEAR	00C8	ROZKAZY
+
+RUCH_DOL . . . . . . . . . . . .  	L NEAR	00B3	ROZKAZY
+RUCH_GORA  . . . . . . . . . . .  	L NEAR	009B	ROZKAZY
+RUCH_LEWO  . . . . . . . . . . .  	L NEAR	0080	ROZKAZY
+RUCH_PRAWO . . . . . . . . . . .  	L NEAR	0065	ROZKAZY
+
+STARE_TLO  . . . . . . . . . . .  	L WORD	0002	ROZKAZY
+
+ZACZNIJ  . . . . . . . . . . . .  	L NEAR	0004	ROZKAZY
+
+@FILENAME  . . . . . . . . . . .  	TEXT  gwiazdki		
+
+
+    140 Source  Lines
+    140 Total   Lines
+     20 Symbols
+
+  50374 + 466170 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
